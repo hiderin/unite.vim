@@ -73,6 +73,10 @@ function! s:source.hooks.on_init(args, context) "{{{
   if a:context.source__input == ''
     redraw
     echo "Please input command-line(quote is needed) Ex: -name '*.vim'"
+    "パスデリミタの変更
+    if unite#util#is_windows()
+        let a:context.source__target = substitute(a:context.source__target,'\/','\\','g')
+    endif
     let a:context.source__input = unite#util#input(
           \ printf('"%s" %s %s ',
           \   g:unite_source_find_command, g:unite_source_find_default_opts,
