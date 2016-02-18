@@ -26,7 +26,7 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-function! unite#filters#sorter_rank#define() "{{{
+function! unite#filters#sorter_rank#define() abort "{{{
   return s:sorter
 endfunction"}}}
 
@@ -35,16 +35,16 @@ let s:sorter = {
       \ 'description' : 'sort by matched rank order',
       \}
 
-function! s:sorter.filter(candidates, context) "{{{
+function! s:sorter.filter(candidates, context) abort "{{{
   if a:context.input == '' || !has('float') || empty(a:candidates)
     return a:candidates
   endif
 
   return unite#filters#sorter_rank#_sort(
-        \ a:candidates, a:context.input, unite#util#has_lua())
+        \ a:candidates, a:context.input_list, unite#util#has_lua())
 endfunction"}}}
 
-function! unite#filters#sorter_rank#_sort(candidates, input, has_lua) "{{{
+function! unite#filters#sorter_rank#_sort(candidates, input_list, has_lua) abort "{{{
   " Initialize.
   let is_path = has_key(a:candidates[0], 'action__path')
   for candidate in a:candidates
@@ -54,9 +54,8 @@ function! unite#filters#sorter_rank#_sort(candidates, input, has_lua) "{{{
   endfor
 
 
-  let inputs = map(split(a:input, '\\\@<! '), "
-        \ tolower(substitute(substitute(v:val, '\\\\ ', ' ', 'g'),
-        \ '\\*', '', 'g'))")
+  let inputs = map(a:input_list, "
+        \ tolower(substitute(v:val, '\\*', '', 'g'))")
 
   let candidates = a:has_lua ?
         \ s:sort_lua(a:candidates, inputs) :
@@ -70,7 +69,7 @@ function! unite#filters#sorter_rank#_sort(candidates, input, has_lua) "{{{
   return candidates
 endfunction"}}}
 
-function! s:sort_vim(candidates, inputs) "{{{
+function! s:sort_vim(candidates, inputs) abort "{{{
   for input in a:inputs
     for candidate in a:candidates
       let word = tolower(candidate.filter__word)
@@ -84,7 +83,7 @@ function! s:sort_vim(candidates, inputs) "{{{
   return unite#util#sort_by(a:candidates, 'v:val.filter__rank')
 endfunction"}}}
 
-function! s:sort_lua(candidates, inputs) "{{{
+function! s:sort_lua(candidates, inputs) abort "{{{
   lua << EOF
 do
   local candidates = vim.eval('a:candidates')

@@ -26,7 +26,7 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-function! unite#custom#get() "{{{
+function! unite#custom#get() abort "{{{
   if !exists('s:custom')
     let s:custom = {}
     let s:custom.sources = {}
@@ -40,15 +40,15 @@ function! unite#custom#get() "{{{
   return s:custom
 endfunction"}}}
 
-function! unite#custom#source(source_name, option_name, value) "{{{
+function! unite#custom#source(source_name, option_name, value) abort "{{{
   return s:custom_base('sources', a:source_name, a:option_name, a:value)
 endfunction"}}}
 
-function! unite#custom#alias(kind, name, action) "{{{
+function! unite#custom#alias(kind, name, action) abort "{{{
   call s:custom_base('aliases', a:kind, a:name, a:action)
 endfunction"}}}
 
-function! unite#custom#default_action(kind, default_action) "{{{
+function! unite#custom#default_action(kind, default_action) abort "{{{
   let custom = unite#custom#get()
 
   let custom = unite#custom#get().default_actions
@@ -61,15 +61,15 @@ function! unite#custom#default_action(kind, default_action) "{{{
   endfor
 endfunction"}}}
 
-function! unite#custom#action(kind, name, action) "{{{
+function! unite#custom#action(kind, name, action) abort "{{{
   return s:custom_base('actions', a:kind, a:name, a:action)
 endfunction"}}}
 
-function! unite#custom#profile(profile_name, option_name, value) "{{{
+function! unite#custom#profile(profile_name, option_name, value) abort "{{{
   if a:option_name ==# 'smartcase'
         \ || a:option_name ==# 'ignorecase'
     call unite#print_error(
-          \ printf('[unite.vim] You cannot set "%s". '
+          \ printf('You cannot set "%s". '
           \ .'Please set "context.%s" by unite#custom#profile() instead.',
           \ a:option_name, a:option_name))
     return
@@ -83,7 +83,9 @@ function! unite#custom#profile(profile_name, option_name, value) "{{{
     if !has_key(custom.profiles, key)
       let custom.profiles[key] = {
             \ 'substitute_patterns' : {},
-            \ 'filters' : [],
+            \ 'matchers' : [],
+            \ 'sorters' : [],
+            \ 'converters' : [],
             \ 'context' : {},
             \ 'unite__save_pos' : {},
             \ 'unite__inputs' : {},
@@ -107,7 +109,7 @@ function! unite#custom#profile(profile_name, option_name, value) "{{{
     endif
   endfor
 endfunction"}}}
-function! unite#custom#get_profile(profile_name, option_name) "{{{
+function! unite#custom#get_profile(profile_name, option_name) abort "{{{
   let custom = unite#custom#get()
   let profile_name =
         \ (a:profile_name == '' || !has_key(custom.profiles, a:profile_name)) ?
@@ -116,7 +118,9 @@ function! unite#custom#get_profile(profile_name, option_name) "{{{
   if !has_key(custom.profiles, profile_name)
     let custom.profiles[profile_name] = {
           \ 'substitute_patterns' : {},
-          \ 'filters' : [],
+          \ 'matchers' : [],
+          \ 'sorters' : [],
+          \ 'converters' : [],
           \ 'context' : {},
           \ 'unite__save_pos' : {},
           \ 'unite__inputs' : {},
@@ -125,8 +129,16 @@ function! unite#custom#get_profile(profile_name, option_name) "{{{
 
   return custom.profiles[profile_name][a:option_name]
 endfunction"}}}
+function! unite#custom#get_context(profile_name) abort "{{{
+  let context = copy(unite#custom#get_profile(a:profile_name, 'context'))
+  for option in map(filter(items(context),
+        \ "stridx(v:val[0], 'no_') == 0 && v:val[1]"), 'v:val[0]')
+    let context[option[3:]] = 0
+  endfor
+  return context
+endfunction"}}}
 
-function! unite#custom#substitute(profile, pattern, subst, ...) "{{{
+function! unite#custom#substitute(profile, pattern, subst, ...) abort "{{{
   let priority = get(a:000, 0, 0)
   call unite#custom#profile(a:profile, 'substitute_patterns', {
         \ 'pattern': a:pattern,
@@ -135,7 +147,7 @@ function! unite#custom#substitute(profile, pattern, subst, ...) "{{{
         \ })
 endfunction"}}}
 
-function! s:custom_base(key, kind, name, value) "{{{
+function! s:custom_base(key, kind, name, value) abort "{{{
   let custom = unite#custom#get()[a:key]
 
   for key in split(a:kind, '\s*,\s*')

@@ -95,7 +95,7 @@ https://github.com/Shougo/neomru.vim
 * [Replacing All The Things with Unite.vim — Codeography](http://www.codeography.com/2013/06/17/replacing-all-the-things-with-unite-vim.html)
 * [Beginner's Guide to Unite](http://usevim.com/2013/06/19/unite/)
 * [Standards: How to make a Unite plugin](http://ujihisa.blogspot.jp/2010/11/how-to-make-unite-plugin.html)
-* [FAQ (`:h unite-faq`)](https://github.com/Shougo/unite.vim/blob/master/doc/unite.txt#L3325)
+* [FAQ (`:h unite-faq`)](https://github.com/Shougo/unite.vim/blob/master/doc/unite.txt#L3608)
 
 
 ## Screen shots
@@ -120,41 +120,43 @@ unite menu source with customization
 ------------------------------------
 ![Unite menu source with customization.](https://f.cloud.github.com/assets/390964/734885/82b91006-e2e1-11e2-9957-fb279bc71311.png)
 
-	let g:unite_source_menu_menus.git = {
-	    \ 'description' : '            gestionar repositorios git
-	        \                            ⌘ [espacio]g',
-	    \}
-	let g:unite_source_menu_menus.git.command_candidates = [
-	    \['▷ tig                                                        ⌘ ,gt',
-	        \'normal ,gt'],
-	    \['▷ git status       (Fugitive)                                ⌘ ,gs',
-	        \'Gstatus'],
-	    \['▷ git diff         (Fugitive)                                ⌘ ,gd',
-	        \'Gdiff'],
-	    \['▷ git commit       (Fugitive)                                ⌘ ,gc',
-	        \'Gcommit'],
-	    \['▷ git log          (Fugitive)                                ⌘ ,gl',
-	        \'exe "silent Glog | Unite quickfix"'],
-	    \['▷ git blame        (Fugitive)                                ⌘ ,gb',
-	        \'Gblame'],
-	    \['▷ git stage        (Fugitive)                                ⌘ ,gw',
-	        \'Gwrite'],
-	    \['▷ git checkout     (Fugitive)                                ⌘ ,go',
-	        \'Gread'],
-	    \['▷ git rm           (Fugitive)                                ⌘ ,gr',
-	        \'Gremove'],
-	    \['▷ git mv           (Fugitive)                                ⌘ ,gm',
-	        \'exe "Gmove " input("destino: ")'],
-	    \['▷ git push         (Fugitive, salida por buffer)             ⌘ ,gp',
-	        \'Git! push'],
-	    \['▷ git pull         (Fugitive, salida por buffer)             ⌘ ,gP',
-	        \'Git! pull'],
-	    \['▷ git prompt       (Fugitive, salida por buffer)             ⌘ ,gi',
-	        \'exe "Git! " input("comando git: ")'],
-	    \['▷ git cd           (Fugitive)',
-	        \'Gcd'],
-	    \]
-	nnoremap <silent>[menu]g :Unite -silent -start-insert menu:git<CR>
+```viml
+let g:unite_source_menu_menus.git = {
+    \ 'description' : '            gestionar repositorios git
+        \                            ⌘ [espacio]g',
+    \}
+let g:unite_source_menu_menus.git.command_candidates = [
+    \['▷ tig                                                        ⌘ ,gt',
+        \'normal ,gt'],
+    \['▷ git status       (Fugitive)                                ⌘ ,gs',
+        \'Gstatus'],
+    \['▷ git diff         (Fugitive)                                ⌘ ,gd',
+        \'Gdiff'],
+    \['▷ git commit       (Fugitive)                                ⌘ ,gc',
+        \'Gcommit'],
+    \['▷ git log          (Fugitive)                                ⌘ ,gl',
+        \'exe "silent Glog | Unite quickfix"'],
+    \['▷ git blame        (Fugitive)                                ⌘ ,gb',
+        \'Gblame'],
+    \['▷ git stage        (Fugitive)                                ⌘ ,gw',
+        \'Gwrite'],
+    \['▷ git checkout     (Fugitive)                                ⌘ ,go',
+        \'Gread'],
+    \['▷ git rm           (Fugitive)                                ⌘ ,gr',
+        \'Gremove'],
+    \['▷ git mv           (Fugitive)                                ⌘ ,gm',
+        \'exe "Gmove " input("destino: ")'],
+    \['▷ git push         (Fugitive, salida por buffer)             ⌘ ,gp',
+        \'Git! push'],
+    \['▷ git pull         (Fugitive, salida por buffer)             ⌘ ,gP',
+        \'Git! pull'],
+    \['▷ git prompt       (Fugitive, salida por buffer)             ⌘ ,gi',
+        \'exe "Git! " input("comando git: ")'],
+    \['▷ git cd           (Fugitive)',
+        \'Gcd'],
+    \]
+nnoremap <silent>[menu]g :Unite -silent -start-insert menu:git<CR>
+```
 
 ## Video
 

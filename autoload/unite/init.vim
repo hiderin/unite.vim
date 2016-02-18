@@ -27,23 +27,33 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 " Global options definition. "{{{
+let g:unite_force_overwrite_statusline =
+      \ get(g:, 'unite_force_overwrite_statusline', 1)
 let g:unite_ignore_source_files =
       \ get(g:, 'unite_ignore_source_files', [])
+let g:unite_quick_match_table =
+      \ get(g:, 'unite_quick_match_table', {
+      \     'a' : 0, 's' : 1, 'd' : 2, 'f' : 3, 'g' : 4, 'h' : 5, 'j' : 6, 'k' : 7, 'l' : 8, ';' : 9,
+      \     'q' : 10, 'w' : 11, 'e' : 12, 'r' : 13, 't' : 14, 'y' : 15, 'u' : 16, 'i' : 17, 'o' : 18, 'p' : 19,
+      \     '1' : 20, '2' : 21, '3' : 22, '4' : 23, '5' : 24, '6' : 25, '7' : 26, '8' : 27, '9' : 28, '0' : 29,
+      \ })
 let g:unite_redraw_hold_candidates =
       \ get(g:, 'unite_redraw_hold_candidates',
       \     (unite#util#has_lua() ? 20000 : 10000))
+let g:unite_enable_auto_select =
+      \ get(g:, 'unite_enable_auto_select', 1)
 "}}}
 
-function! unite#init#_context(context, ...) "{{{
+function! unite#init#_context(context, ...) abort "{{{
   let source_names = get(a:000, 0, [])
 
   let default_context = extend(copy(unite#variables#default_context()),
-        \ unite#custom#get_profile('default', 'context'))
+        \ unite#custom#get_context('default'))
 
   if len(source_names) == 1
     " Overwrite source context by profile.
-    call extend(default_context, unite#custom#get_profile(
-          \ 'source/' . source_names[0], 'context'))
+    call extend(default_context, unite#custom#get_context(
+          \ 'source/' . source_names[0]))
   endif
 
   if get(a:context, 'script', 0)
@@ -54,23 +64,21 @@ function! unite#init#_context(context, ...) "{{{
         \    get(a:context, 'buffer_name', 'default'))
   if profile_name !=# 'default'
     " Overwrite context by profile.
-    call extend(default_context, unite#custom#get_profile(
-          \ profile_name, 'context'))
+    call extend(default_context, unite#custom#get_context(profile_name))
   endif
+
+  " Generic no.
+  for option in map(filter(items(a:context),
+        \ "stridx(v:val[0], 'no_') == 0 && v:val[1]"), 'v:val[0]')
+    let a:context[option[3:]] = 0
+  endfor
 
   let context = extend(default_context, a:context)
 
   if context.temporary || context.script
     " User can overwrite context by profile context.
-    let context = extend(context,
-          \ unite#custom#get_profile(profile_name, 'context'))
+    let context = extend(context, unite#custom#get_context(profile_name))
   endif
-
-  " Generic no.
-  for option in map(filter(items(context),
-        \ "stridx(v:val[0], 'no_') == 0 && v:val[1]"), 'v:val[0]')
-    let context[option[3:]] = 0
-  endfor
 
   " Complex initializer.
   if context.complete
@@ -97,9 +105,6 @@ function! unite#init#_context(context, ...) "{{{
     " Split automatically.
     let context.split = 1
   endif
-  if context.auto_preview && !context.unite__is_restart
-    let context.winheight -= &previewheight
-  endif
   if context.prompt_direction == ''
     let context.prompt_direction =
           \ (context.direction =~# 'bel\|bot')
@@ -109,8 +114,13 @@ function! unite#init#_context(context, ...) "{{{
         \ && !get(context, 'no_auto_resize', 0)
     let context.auto_resize = 1
   endif
-  if context.path != '' && context.path !~ '/$'
-    let context.path .= '/'
+  if context.path != ''
+    " Expand "~".
+    let context.path = unite#util#expand(context.path)
+
+    if context.path !~ '/$'
+      let context.path .= '/'
+    endif
   endif
   if len(source_names) == 1
         \ && !get(context, 'no_hide_source_names', 0)
@@ -122,7 +132,7 @@ function! unite#init#_context(context, ...) "{{{
   return context
 endfunction"}}}
 
-function! unite#init#_unite_buffer() "{{{
+function! unite#init#_unite_buffer() abort "{{{
   let current_unite = unite#variables#current_unite()
   let is_bufexists = bufexists(current_unite.real_buffer_name)
   let current_unite.context.real_buffer_name =
@@ -197,8 +207,6 @@ function! unite#init#_unite_buffer() "{{{
             \ call unite#handlers#_on_buf_unload(expand('<afile>'))
       autocmd WinEnter,BufWinEnter <buffer>
             \ call unite#handlers#_on_bufwin_enter(bufnr(expand('<abuf>')))
-      autocmd WinLeave,BufWinLeave <buffer>
-            \ call unite#handlers#_restore_updatetime()
     augroup END
 
     if v:version > 703 || v:version == 703 && has('patch418')
@@ -242,7 +250,7 @@ function! unite#init#_unite_buffer() "{{{
   setfiletype unite
 endfunction"}}}
 
-function! unite#init#_current_unite(sources, context) "{{{
+function! unite#init#_current_unite(sources, context) abort "{{{
   let context = a:context
 
   " Overwrite previous unite buffer.
@@ -287,7 +295,11 @@ function! unite#init#_current_unite(sources, context) "{{{
   let unite.prev_bufnr =
         \ (exists('b:unite') && !context.split) ?
         \ b:unite.prev_bufnr : bufnr('%')
+  let unite.prev_pos =
+        \ (exists('b:unite') && !context.split) ?
+        \ b:unite.prev_pos : getpos('.')
   let unite.prev_winnr = winnr()
+  let unite.prev_winsaveview = winsaveview()
   let unite.prev_line = 0
   let unite.update_time_save = &updatetime
   let unite.statusline = unite#view#_get_status_string(unite)
@@ -314,8 +326,9 @@ function! unite#init#_current_unite(sources, context) "{{{
   let unite.access_time = localtime()
   let unite.is_finalized = 0
   let unite.previewed_buffer_list = []
-  let unite.post_filters = unite#util#convert2list(
-        \ unite#custom#get_profile(unite.profile_name, 'filters'))
+  let unite.current_matchers = []
+  let unite.current_sorters = []
+  let unite.current_converters = []
   let unite.preview_candidate = {}
   let unite.highlight_candidate = {}
   let unite.max_source_name = 0
@@ -333,6 +346,10 @@ function! unite#init#_current_unite(sources, context) "{{{
   let unite.cursor_line_time = reltime()
   let unite.match_id = 11
   let unite.sign_offset = 0
+
+  if has('nvim') && exists(':UniteInitializePython')
+    UniteInitializePython
+  endif
 
   if context.here
     let context.winheight = winheight(0) - winline() + 1
@@ -359,7 +376,7 @@ function! unite#init#_current_unite(sources, context) "{{{
 endfunction"}}}
 
 " @vimlint(EVL102, 1, l:max_source_name)
-function! unite#init#_candidates(candidates) "{{{
+function! unite#init#_candidates(candidates) abort "{{{
   let unite = unite#get_current_unite()
   let context = unite.context
   let [max_width, max_source_name] = unite#helper#adjustments(
@@ -449,7 +466,7 @@ function! unite#init#_candidates(candidates) "{{{
 endfunction"}}}
 " @vimlint(EVL102, 0, l:max_source_name)
 
-function! unite#init#_candidates_source(candidates, source_name) "{{{
+function! unite#init#_candidates_source(candidates, source_name) abort "{{{
   let source = unite#variables#loaded_sources(a:source_name)
 
   let default_candidate = {
@@ -471,22 +488,10 @@ function! unite#init#_candidates_source(candidates, source_name) "{{{
   return candidates
 endfunction"}}}
 
-function! unite#init#_default_scripts(kind, names) "{{{
+function! unite#init#_default_scripts(kind, names) abort "{{{
   let names = empty(a:names) ? [''] : a:names
   if a:kind ==# 'sources' && !empty(a:names)
     call add(names, 'alias')
-
-    if !exists('*neobundle#autoload#unite_sources')
-      " Dummy call.
-      try
-        call neobundle#autoload#unite_sources([])
-      catch /E117.*/
-      endtry
-    endif
-
-    if exists('*neobundle#autoload#unite_sources')
-      call neobundle#autoload#unite_sources(a:names)
-    endif
   endif
 
   let loaded_defaults = unite#variables#loaded_defaults()
@@ -546,7 +551,7 @@ function! unite#init#_default_scripts(kind, names) "{{{
   endfor
 endfunction"}}}
 
-function! unite#init#_kinds() "{{{
+function! unite#init#_kinds() abort "{{{
   let kinds = extend(copy(unite#variables#static().kinds),
         \ unite#variables#dynamic().kinds)
   for kind in values(filter(copy(kinds),
@@ -565,12 +570,12 @@ function! unite#init#_kinds() "{{{
 
   return kinds
 endfunction"}}}
-function! unite#init#_filters() "{{{
+function! unite#init#_filters() abort "{{{
   return extend(copy(unite#variables#static().filters),
         \ unite#variables#dynamic().filters)
 endfunction"}}}
 
-function! unite#init#_loaded_sources(sources, context) "{{{
+function! unite#init#_loaded_sources(sources, context) abort "{{{
   let all_sources = unite#init#_sources(
         \ unite#helper#get_source_names(a:sources))
   let sources = []
@@ -588,12 +593,12 @@ function! unite#init#_loaded_sources(sources, context) "{{{
 
         if source_name =~ '^-'
           call unite#util#print_error(
-                \ 'unite.vim: Invalid option "' .
+                \ 'Invalid option "' .
                 \ source_name . '" is detected.')
           throw 'unite.vim: Invalid option'
         else
           call unite#util#print_error(
-                \ 'unite.vim: Invalid source name "' .
+                \ 'Invalid source name "' .
                 \ source_name . '" is detected.')
           if source_name ==# 'file_mru' || source_name ==# 'directory_mru'
             call unite#util#print_error(
@@ -631,7 +636,7 @@ function! unite#init#_loaded_sources(sources, context) "{{{
   return sources
 endfunction"}}}
 
-function! unite#init#_sources(...) "{{{
+function! unite#init#_sources(...) abort "{{{
   " args: source_names or source_definition
 
   " Initialize load.
@@ -649,8 +654,6 @@ function! unite#init#_sources(...) "{{{
         \ 'is_volatile' : 0,
         \ 'is_listed' : 1,
         \ 'is_forced' : 0,
-        \ 'is_grouped' : 0,
-        \ 'required_pattern_length' : 0,
         \ 'action_table' : {},
         \ 'default_action' : {},
         \ 'default_kind' : 'common',
@@ -735,7 +738,7 @@ function! unite#init#_sources(...) "{{{
       " Set filters.
       if has_key(custom_source, 'filters')
         call unite#print_error(
-              \ '[unite.vim] Custom filters feature is removed.'.
+              \ 'Custom filters feature is removed.'.
               \ '  You must use matchers/sorters/converters feature.')
       endif
 
@@ -763,6 +766,9 @@ function! unite#init#_sources(...) "{{{
             \    get(source, 'white_globs', [])))
       let source.syntax = get(custom_source, 'syntax',
             \    get(source, 'syntax', ''))
+      let source.required_pattern_length =
+            \ get(custom_source, 'required_pattern_length',
+            \    get(source, 'required_pattern_length', 0))
 
       let source.unite__len_candidates = 0
       let source.unite__orig_len_candidates = 0
@@ -771,16 +777,16 @@ function! unite#init#_sources(...) "{{{
       call unite#print_error(v:throwpoint)
       call unite#print_error(v:exception)
       call unite#print_error(
-            \ '[unite.vim] Error occurred in source initialization!')
+            \ 'Error occurred in source initialization!')
       call unite#print_error(
-            \ '[unite.vim] Source name is ' . source.name)
+            \ 'Source name is ' . source.name)
     endtry
   endfor
 
   return sources
 endfunction"}}}
 
-function! unite#init#_tab_variables() "{{{
+function! unite#init#_tab_variables() abort "{{{
   if !exists('t:unite')
     let t:unite = { 'last_unite_bufnr' : -1 }
   endif

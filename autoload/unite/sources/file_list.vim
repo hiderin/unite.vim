@@ -1,5 +1,5 @@
 "=============================================================================
-" FILE: history_yank.vim
+" FILE: file_list.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
@@ -23,34 +23,43 @@
 " }}}
 "=============================================================================
 
-if exists('g:loaded_unite_source_history_yank')
-      \ || ($SUDO_USER != '' && $USER !=# $SUDO_USER
-      \     && $HOME !=# expand('~'.$USER)
-      \     && $HOME ==# expand('~'.$SUDO_USER))
-  finish
-endif
-
 let s:save_cpo = &cpo
 set cpo&vim
 
-if exists('g:unite_source_history_yank_enable')
-      \ && g:unite_source_history_yank_enable
-  augroup plugin-unite-history-yank
-    autocmd!
-    autocmd CursorMoved,FocusGained * silent
-     \ call unite#sources#history_yank#_append()
-  augroup END
+" Variables  "{{{
+"}}}
 
-  if v:version > 703 || v:version == 703 && has('patch867')
-    autocmd plugin-unite-history-yank TextChanged * silent
-     \ call unite#sources#history_yank#_append()
+function! unite#sources#file_list#define() abort "{{{
+  return s:source
+endfunction"}}}
+
+let s:source = {
+      \ 'name' : 'file_list',
+      \ 'description' : 'candidates from filelist',
+      \ 'default_kind' : 'file',
+      \ }
+
+function! s:source.complete(args, context, arglead, cmdline, cursorpos) abort "{{{
+  return unite#sources#file#complete_file(
+        \ a:args, a:context, a:arglead, a:cmdline, a:cursorpos)
+endfunction"}}}
+
+function! s:source.gather_candidates(args, context) abort "{{{
+  let args = unite#helper#parse_source_args(a:args)
+
+  if empty(args)
+    call unite#print_source_error(
+          \ 'filelist path is needed.', s:source.name)
+    return []
   endif
-endif
 
-let g:loaded_unite_source_history_yank = 1
+  return map(readfile(args[0]), "{
+        \ 'word' : v:val,
+        \ 'action__path' : v:val,
+        \}")
+endfunction "}}}
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
 
-" __END__
 " vim: foldmethod=marker

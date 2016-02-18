@@ -1,5 +1,5 @@
 "=============================================================================
-" FILE: matcher_hide_hidden_files.vim
+" FILE: converter_abbr_word.vim
 " AUTHOR:  Shougo Matsushita <Shougo.Matsu@gmail.com>
 " License: MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
@@ -26,26 +26,21 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-function! unite#filters#matcher_hide_hidden_files#define() abort "{{{
-  return s:matcher
+function! unite#filters#converter_abbr_word#define() abort "{{{
+  return s:converter
 endfunction"}}}
 
-let s:matcher = {
-      \ 'name' : 'matcher_hide_hidden_files',
-      \ 'description' : 'hide hidden files matcher',
+let s:converter = {
+      \ 'name' : 'converter_abbr_word',
+      \ 'description' : 'abbr to word converter',
       \}
 
-function! s:matcher.filter(candidates, context) abort "{{{
-  if stridx(a:context.input, '.') >= 0
-    return a:candidates
-  endif
+function! s:converter.filter(candidates, context) abort "{{{
+  for candidate in a:candidates
+    let candidate.word = get(candidate, 'abbr', candidate.word)
+  endfor
 
-  return unite#util#has_lua() ?
-        \ unite#filters#lua_filter_patterns(a:candidates,
-        \   ['^%.[^/]*/?$', '/%.[^/]*/?$'], []) :
-        \ filter(a:candidates, "
-        \   has_key(v:val, 'action__path')
-        \    && v:val.action__path !~ '\\%(^\\|/\\)\\.[^/]*/\\?$'")
+  return a:candidates
 endfunction"}}}
 
 let &cpo = s:save_cpo

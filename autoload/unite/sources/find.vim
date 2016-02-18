@@ -26,34 +26,17 @@
 " Variables  "{{{
 call unite#util#set_default('g:unite_source_find_command', 'find')
 call unite#util#set_default('g:unite_source_find_default_opts', '')
-call unite#util#set_default('g:unite_source_find_max_candidates', 100)
+call unite#util#set_default('g:unite_source_find_default_expr', '-name ')
 "}}}
 
-" Actions "{{{
-let s:action_find = {
-  \   'description': 'find this directory',
-  \   'is_quit': 1,
-  \   'is_invalidate_cache': 1,
-  \   'is_start' : 1,
-  \ }
-function! s:action_find.func(candidate) "{{{
-  call unite#start_script([['find',
-        \ unite#helper#get_candidate_directory(a:candidate)]],
-        \ {'no_quit' : 1})
-endfunction "}}}
-if executable(g:unite_source_find_command) && unite#util#has_vimproc()
-  call unite#custom_action('file,buffer', 'find', s:action_find)
-endif
-" }}}
-
-function! unite#sources#find#define() "{{{
+function! unite#sources#find#define() abort "{{{
   return executable(g:unite_source_find_command) && unite#util#has_vimproc() ?
         \ s:source : []
 endfunction "}}}
 
 let s:source = {
       \ 'name': 'find',
-      \ 'max_candidates': g:unite_source_find_max_candidates,
+      \ 'max_candidates': 100,
       \ 'hooks' : {},
       \ 'matchers' : ['matcher_regexp'],
       \ 'ignore_globs' : [
@@ -63,13 +46,17 @@ let s:source = {
       \ ],
       \ }
 
-function! s:source.hooks.on_init(args, context) "{{{
-  let a:context.source__target = get(a:args, 0, '')
-  if a:context.source__target == ''
-    let a:context.source__target = unite#util#input('Target: ', '.', 'dir')
+function! s:source.hooks.on_init(args, context) abort "{{{
+  let target = get(a:args, 0, '')
+  if target == ''
+    let target = isdirectory(a:context.path) ?
+      \ a:context.path :
+      \ unite#helper#parse_source_path(
+        \ unite#util#input('Target: ', '.', 'dir'))
   endif
 
-  let a:context.source__input = get(a:args, 1, '')
+  let a:context.source__targets = split(target, "\n")
+  let a:context.source__input = get(a:args, 1, a:context.input)
   if a:context.source__input == ''
     redraw
     echo "Please input command-line(quote is needed) Ex: -name '*.vim'"
@@ -79,18 +66,20 @@ function! s:source.hooks.on_init(args, context) "{{{
     endif
     let a:context.source__input = unite#util#input(
           \ printf('"%s" %s %s ',
-          \   g:unite_source_find_command, g:unite_source_find_default_opts,
-          \   a:context.source__target), '-name ')
+          \   g:unite_source_find_command,
+          \   g:unite_source_find_default_opts,
+          \   unite#helper#join_targets(a:context.source__targets)),
+          \   g:unite_source_find_default_expr)
   endif
 endfunction"}}}
-function! s:source.hooks.on_close(args, context) "{{{
+function! s:source.hooks.on_close(args, context) abort "{{{
   if has_key(a:context, 'source__proc')
     call a:context.source__proc.waitpid()
   endif
 endfunction "}}}
 
-function! s:source.gather_candidates(args, context) "{{{
-  if empty(a:context.source__target)
+function! s:source.gather_candidates(args, context) abort "{{{
+  if empty(a:context.source__targets)
         \ || a:context.source__input == ''
     let a:context.is_async = 0
     return []
@@ -111,9 +100,10 @@ function! s:source.gather_candidates(args, context) "{{{
 
   let cmdline = printf('"%s" %s %s %s',
         \ g:unite_source_find_command, g:unite_source_find_default_opts,
-        \   string(a:context.source__target), a:context.source__input)
+        \ unite#helper#join_targets(a:context.source__targets),
+        \ a:context.source__input)
   call unite#print_source_message('Command-line: ' . cmdline, s:source.name)
-  let a:context.source__proc = vimproc#pgroup_open(
+  let a:context.source__proc = vimproc#popen3(
         \ vimproc#util#iconv(cmdline, &encoding, 'char'))
 
   " Close handles.
@@ -123,7 +113,7 @@ function! s:source.gather_candidates(args, context) "{{{
   return []
 endfunction "}}}
 
-function! s:source.async_gather_candidates(args, context) "{{{
+function! s:source.async_gather_candidates(args, context) abort "{{{
   let stdout = a:context.source__proc.stdout
   if stdout.eof
     " Disable async.
@@ -135,9 +125,7 @@ function! s:source.async_gather_candidates(args, context) "{{{
         \ "fnamemodify(unite#util#iconv(v:val, 'char', &encoding), ':p')")
 
   let cwd = getcwd()
-  if isdirectory(a:context.source__target)
-    call unite#util#lcd(a:context.source__target)
-  endif
+  call unite#util#lcd(a:context.source__targets[0])
 
   call map(candidates, "{
     \   'word' : unite#util#substitute_path_separator(v:val),
@@ -145,14 +133,12 @@ function! s:source.async_gather_candidates(args, context) "{{{
     \   'action__path' : unite#util#substitute_path_separator(v:val),
     \ }")
 
-  if isdirectory(a:context.source__target)
-    call unite#util#lcd(cwd)
-  endif
+  call unite#util#lcd(cwd)
 
   return candidates
 endfunction "}}}
 
-function! s:source.complete(args, context, arglead, cmdline, cursorpos) "{{{
+function! s:source.complete(args, context, arglead, cmdline, cursorpos) abort "{{{
   return unite#sources#file#complete_directory(
         \ a:args, a:context, a:arglead, a:cmdline, a:cursorpos)
 endfunction"}}}
