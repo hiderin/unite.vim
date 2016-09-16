@@ -169,6 +169,11 @@ function! unite#util#has_lua() abort
         \ && (!unite#util#is_windows() ||
         \     &encoding ==# 'utf-8' || &encoding ==# 'latin1')
 endfunction
+function! unite#util#has_timers() abort
+  " Vim timers implementation has bug.
+  " It cannot stop callback handler in the handler.
+  return has('timers') && (has('nvim') || has('patch-7.4.2304'))
+endfunction
 function! unite#util#system(...) abort
   return call(s:get_process().system, a:000)
 endfunction
@@ -409,6 +414,20 @@ endfunction"}}}
 function! unite#util#lcd(dir) abort "{{{
   if isdirectory(a:dir)
     execute (haslocaldir() ? 'lcd' : 'cd') fnameescape(a:dir)
+  endif
+endfunction"}}}
+
+function! unite#util#redir(cmd) abort "{{{
+  if exists('*capture')
+    return capture(a:cmd)
+  else
+    let [save_verbose, save_verbosefile] = [&verbose, &verbosefile]
+    set verbose=0 verbosefile=
+    redir => res
+    silent! execute a:cmd
+    redir END
+    let [&verbose, &verbosefile] = [save_verbose, save_verbosefile]
+    return res
   endif
 endfunction"}}}
 
